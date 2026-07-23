@@ -1,0 +1,3021 @@
+/* ════════════════════════════════════════════════════════════════════
+   WHITEBOARD CRIATIVO INFINITO — Folha de estilo (Fase 1)
+   Filosofia: ultra-clean, foco no conteúdo. Nada na tela compete com
+   a ideia do usuário. Cores quentes-neutras; um único accent muito sutil.
+   ════════════════════════════════════════════════════════════════════ */
+
+   :root {
+    /* Paleta — off-whites quentes, tipo papel. Sem azuis frios de SaaS. */
+    --bg:            #f6f5f1;          /* papel */
+    --bg-elevated:   #fdfcf9;          /* card */
+    --ink:           #1a1a18;          /* tinta */
+    --ink-soft:      #6b6a64;          /* meia-tinta */
+    --ink-faint:     #b8b6ad;          /* dica */
+    --line:          #e7e5dd;          /* divisória */
+    --dot:           #d8d5cb;          /* dot grid (quase invisível) */
+    --accent:        oklch(0.55 0.17 295);  /* roxo — um único accent */
+    --accent-soft:   oklch(0.55 0.17 295 / 0.10);
+  
+    /* Tipografia */
+    --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  
+    /* Sombras — discretas, com toque quente. */
+    --shadow-card: 0 1px 2px rgba(40, 35, 25, 0.04),
+                   0 8px 24px rgba(40, 35, 25, 0.06);
+    --shadow-pop:  0 2px 4px rgba(40, 35, 25, 0.06),
+                   0 16px 40px rgba(40, 35, 25, 0.12);
+  
+    /* Métricas */
+    --radius-card: 10px;
+    --radius-pop:  12px;
+  }
+  
+  * { box-sizing: border-box; }
+  
+  /* Flex/inline-flex elementos ignoram [hidden] por padr\u00e3o \u2014 restaurar. */
+  [hidden] { display: none !important; }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;                 /* o canvas controla todo o scroll */
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  
+  button { font-family: inherit; }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 5px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg-elevated);
+    color: var(--ink-soft);
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     VIEWPORT + WORLD
+     O dot grid vive no WORLD para que escale junto com o conteúdo —
+     isso dá a sensação de "papel infinito" real, não de fundo decorativo.
+     ──────────────────────────────────────────────────────────────────── */
+  
+     .viewport {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      cursor: grab;
+      /* 🎯 NOVO: fundo aplicado direto na viewport (não escala) evita
+         que a área "além do dot grid" fique preta quando você pan/zoom
+         muito rápido durante um frame de layer swap. */
+      background: var(--bg);
+    }
+  .viewport.is-panning { cursor: grabbing; }
+  .viewport.is-panning .world { pointer-events: none; } /* não interfere com cards */
+  
+  .world {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1px;  height: 1px;
+    transform-origin: 0 0;
+    /* REMOVIDO: will-change: transform
+       Motivo: com poucos filhos era ótimo, mas com muitos cards + dot grid
+       gigante a promoção de layer causava thrashing durante o zoom. O
+       próprio transform já é acelerado sem precisar do hint. */
+  
+    /* Dot grid embutido no #world direto, sem pseudo-elemento gigante.
+       A cobertura "infinita" vem do próprio pseudo abaixo, agora bem menor. */
+    background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.3px);
+    background-size: 32px 32px;
+    background-position: 0 0;
+  }
+  
+  /* Pseudo-elemento MENOR (10k x 10k em vez de 100k x 100k).
+     Motivo: mesmo em zoom máximo (scale 4), 10000×4 = 40000px cobre
+     qualquer viewport prática. E o Chrome consegue manter isso em cache
+     sem repintar a cada frame de zoom. */
+  .world::before {
+    content: "";
+    position: absolute;
+    left: -5000px;
+    top:  -5000px;
+    width:  10000px;
+    height: 10000px;
+    background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.3px);
+    background-size: 32px 32px;
+    background-position: 0 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     HUD — marca discreta no topo-esquerdo, controles de zoom embaixo-direita
+     ──────────────────────────────────────────────────────────────────── */
+  
+  .hud {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+    user-select: none;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .hud--topleft     { top: 20px;    left: 24px; }
+  .hud--bottomright { bottom: 20px; right: 24px;
+                      background: var(--bg-elevated);
+                      border: 1px solid var(--line);
+                      border-radius: 999px;
+                      padding: 4px 6px;
+                      box-shadow: var(--shadow-card); }
+  
+  .hud__mark  { font-size: 14px; color: var(--accent); }
+  .hud__title { font-weight: 500; letter-spacing: 0.01em; color: var(--ink); }
+  
+  .hud__btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 26px; height: 26px;
+    border-radius: 999px;
+    font-size: 15px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .hud__btn:hover { background: var(--bg); color: var(--ink); }
+  .hud__btn--text { width: auto; padding: 0 10px; font-size: 12px; }
+  
+  .hud__zoom {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    min-width: 42px;
+    text-align: center;
+    color: var(--ink);
+  }
+  .hud__sep {
+    width: 1px; height: 16px;
+    background: var(--line);
+    margin: 0 2px;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     HINT — desaparece após a primeira interação
+     ──────────────────────────────────────────────────────────────────── */
+  .hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 16px;
+    box-shadow: var(--shadow-card);
+    z-index: 9;
+    opacity: 1;
+    transition: opacity 600ms ease 200ms;
+    pointer-events: none;
+  }
+  .hint.is-hidden { opacity: 0; }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     CONTEXT MENU — aparece no clique direito
+     Tom de "papel elevado" para harmonizar com os cards.
+     ──────────────────────────────────────────────────────────────────── */
+  
+  .context-menu {
+    position: fixed;
+    z-index: 100;
+    min-width: 200px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pop);
+    box-shadow: var(--shadow-pop);
+    padding: 6px;
+    font-size: 13px;
+    user-select: none;
+    animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+  
+  .context-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: background 80ms ease;
+  }
+  .context-menu__item:hover { background: var(--accent-soft); }
+  .context-menu__icon {
+    width: 22px; height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .context-menu__label  { flex: 1; }
+  .context-menu__hint   {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+  .context-menu__sep {
+    height: 1px;
+    background: var(--line);
+    margin: 6px 4px;
+  }
+  .context-menu__banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin: -2px -2px 4px;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .context-menu__banner::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+  .context-menu__header {
+    padding: 6px 10px 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     CARDS — base comum
+     Cada card é absoluto no WORLD; coordenadas em "world units".
+     ──────────────────────────────────────────────────────────────────── */
+  
+  .card {
+    position: absolute;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    min-width: 120px;
+    /* max-width removido → permite resize horizontal livre.
+       display:flex column → corpo do card preenche altura disponível,
+       essencial para que imagem/YouTube/shape acompanhem o resize vertical. */
+    display: flex;
+    flex-direction: column;
+    /* Sem transition em transform/position para não atrasar o drag. */
+    transition: box-shadow 160ms ease, border-color 160ms ease;
+    outline: none; /* outline visual fica a cargo de .is-selected */
+  }
+  .card:hover     { box-shadow: var(--shadow-pop); }
+  .card.is-active { border-color: var(--accent); box-shadow: var(--shadow-pop); }
+  /* Card focado (recebe foco quando selecionado, para o Delete funcionar
+     mesmo com iframes/inputs dentro). Outline discreto, complementa is-selected. */
+  .card:focus-visible {
+    box-shadow: var(--shadow-pop), 0 0 0 2px var(--accent);
+  }
+  
+  /* "Handle" superior — área de arrasto + ações */
+  .card__handle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 4px;
+    cursor: grab;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px dashed transparent;
+  }
+  .card__handle:active { cursor: grabbing; }
+  .card__type-dot {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: var(--ink-faint);
+  }
+  .card__type { flex: 1; }
+  .card__close {
+    appearance: none;
+    border: 0; background: transparent;
+    color: var(--ink-faint);
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  }
+  .card:hover .card__close { opacity: 1; }
+  /* Card selecionado: X sempre visível. Importante especialmente para
+     cards com iframe (YouTube) onde a tecla Delete pode não funcionar
+     se o iframe roubou o foco do teclado — o X é o escape garantido. */
+  .card.is-selected .card__close { opacity: 1; }
+  .card__close:hover { background: var(--bg); color: var(--ink); }
+  
+  /* ── Note Card ─────────────────────────────────────────────────────── */
+  .card--note .card__type-dot { background: var(--accent); }
+  
+  .card__note {
+    padding: 8px 14px 14px;
+    outline: none;
+    min-height: 60px;
+    /* Preenche altura disponível quando o card é redimensionado verticalmente. */
+    flex: 1 1 auto;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    cursor: text;
+    overflow: auto;
+  }
+  .card__note:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  
+  /* ── Code Card ─────────────────────────────────────────────────────── */
+  .card--code              { min-width: 320px; }
+  .card--code .card__type-dot { background: oklch(0.65 0.13 220); } /* tom diferente do accent */
+  
+  .card__code-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+  }
+  .card__lang {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .card__lang:hover { background: var(--bg); }
+  .card__copy {
+    margin-left: auto;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-faint);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .card__copy:hover { color: var(--ink); background: var(--bg); }
+  
+  .card__code {
+    margin: 0;
+    padding: 10px 14px 14px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    tab-size: 2;
+    cursor: text;
+    min-height: 60px;
+    /* Preenche altura disponível quando o card é redimensionado. */
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+  .card__code:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  
+  /* Syntax highlighting — paleta quente, baixíssimo contraste de cor.
+     Não é discoteca: é só hierarquia. */
+  .tok-key     { color: oklch(0.50 0.16 280); font-weight: 500; }
+  .tok-str     { color: oklch(0.55 0.12 150); }
+  .tok-num     { color: oklch(0.58 0.14 60); }
+  .tok-com     { color: var(--ink-faint); font-style: italic; }
+  .tok-fn      { color: oklch(0.55 0.13 220); }
+  .tok-punct   { color: var(--ink-soft); }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     FASE 2 — Desenho, mídia, YouTube, áudio, vídeo
+     ════════════════════════════════════════════════════════════════════ */
+  
+  /* ────────────────────────────────────────────────────────────────────
+     DRAW FAB — mirror visual da HUD de zoom no canto oposto
+     ──────────────────────────────────────────────────────────────────── */
+  .draw-fab {
+    position: fixed;
+    bottom: 20px;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: var(--shadow-card);
+    z-index: 10;
+    font-size: 12px;
+    color: var(--ink-soft);
+    user-select: none;
+  }
+  .draw-fab__btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 26px; height: 26px;
+    border-radius: 999px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .draw-fab__btn:hover { background: var(--bg); color: var(--ink); }
+  .draw-fab__btn.is-active {
+    background: var(--ink);
+    color: var(--bg-elevated);
+  }
+  .draw-fab__btn--text {
+    width: auto;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .draw-fab__sep {
+    width: 1px; height: 16px;
+    background: var(--line);
+    margin: 0 4px;
+  }
+  .draw-fab__colors {
+    display: flex;
+    gap: 6px;
+    padding: 0 4px;
+    align-items: center;
+  }
+  .draw-fab__color {
+    appearance: none;
+    border: 1.5px solid transparent;
+    width: 16px; height: 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    padding: 0;
+    background: var(--c);
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .draw-fab__color:hover { transform: scale(1.15); }
+  .draw-fab__color.is-active {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 2px var(--bg-elevated) inset;
+  }
+  
+  /* Seções "colors" e separator só aparecem quando uma ferramenta
+     está ativa — mantém o FAB pequeno em estado de repouso. */
+  .draw-fab [data-show-when="drawing"] {
+    display: none;
+  }
+  .draw-fab.is-expanded [data-show-when="drawing"] {
+    display: flex;
+  }
+  .draw-fab.is-expanded .draw-fab__colors { display: flex; }
+  
+  /* Cursor + bloqueio de cards durante o desenho */
+  body.is-drawing .viewport { cursor: crosshair; }
+  body.is-erasing .viewport { cursor: cell; }
+  body.is-drawing .card     { pointer-events: none; }
+  body.is-drawing .hint     { opacity: 0; }
+  
+  /* Camada SVG de desenho — vetor dentro do mundo */
+  .draw-layer {
+    /* presença explícita para o leitor; nada a fazer aqui */
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     DROP TARGET — feedback ao arrastar imagem do desktop
+     ──────────────────────────────────────────────────────────────────── */
+  .viewport.is-drop-target::after {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 2px dashed var(--accent);
+    border-radius: 14px;
+    background: var(--accent-soft);
+    pointer-events: none;
+    z-index: 50;
+  }
+  .viewport.is-drop-target::before {
+    content: "solte para adicionar";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 8px 18px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    pointer-events: none;
+    z-index: 51;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     IMAGE CARD — chrome mínimo, imagem dominante
+     ──────────────────────────────────────────────────────────────────── */
+  .card--image { padding: 0; min-width: 120px; }
+  .card--image .card__type-dot { background: var(--accent); }
+  .card__image {
+    display: block;
+    width: 100%;
+    /* Preenche a altura disponível do card (com flex column).
+       object-fit: contain → preserva proporção dentro do espaço dado.
+       Trocar para "cover" se preferir corte total. */
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    object-fit: contain;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    user-select: none;
+    -webkit-user-drag: none;
+    /* Sprint 5 (item 7): dica ao navegador para usar reamostragem de
+       alta qualidade quando a imagem é escalada pelo zoom do canvas.
+       Chrome/Safari respeitam -webkit-optimize-contrast; Firefox usa
+       auto por padrão (já é bom). */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: high-quality;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     YOUTUBE CARD
+     ──────────────────────────────────────────────────────────────────── */
+  .card--youtube { min-width: 240px; }
+  .card--youtube .card__type-dot { background: oklch(0.55 0.20 25); } /* vermelho YT, dessat */
+  .card__yt {
+    position: relative;
+    width: 100%;
+    /* aspect-ratio removido → resize vertical livre.
+       A altura inicial vem do JS (createYouTubeCard), depois o flex
+       garante que o body preenche o que sobra do card. */
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #0a0a0a;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    overflow: hidden;
+  }
+  .card__yt-iframe {
+    width: 100%; height: 100%;
+    border: 0;
+    display: block;
+  }
+  .card__yt-empty {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    background:
+      radial-gradient(circle at 50% 40%, #1a1a18, #0a0a0a 70%);
+  }
+  .card__yt-glyph {
+    font-size: 28px;
+    opacity: 0.45;
+  }
+  .card__yt-input {
+    width: 80%;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f0eee8;
+    outline: none;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .card__yt-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+  .card__yt-input:focus {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.07);
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     AUDIO CARD
+     ──────────────────────────────────────────────────────────────────── */
+  .card--audio .card__type-dot { background: oklch(0.65 0.13 220); }
+  .card__audio {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px 14px;
+    color: var(--ink-soft);
+  }
+  .card__audio-rec {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    width: 30px; height: 30px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 120ms ease;
+    flex-shrink: 0;
+  }
+  .card__audio-dot {
+    width: 10px; height: 10px;
+    border-radius: 999px;
+    background: oklch(0.55 0.20 25);
+    transition: border-radius 120ms ease, transform 120ms ease;
+  }
+  .card__audio-rec:hover { border-color: oklch(0.55 0.20 25); }
+  .card__audio-rec.is-recording {
+    border-color: oklch(0.55 0.20 25);
+    animation: pulse-ring 1.2s infinite;
+  }
+  .card__audio-rec.is-recording .card__audio-dot {
+    border-radius: 2px;
+    transform: scale(0.8);
+  }
+  .card__audio-wave {
+    flex: 1;
+    height: 32px;
+    color: var(--ink-soft);
+  }
+  .card__audio-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    min-width: 32px;
+    text-align: right;
+  }
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0   oklch(0.55 0.20 25 / 0.35); }
+    50%      { box-shadow: 0 0 0 6px oklch(0.55 0.20 25 / 0);    }
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     VIDEO CARD
+     ──────────────────────────────────────────────────────────────────── */
+  .card--video { min-width: 280px; padding: 0 0 12px; }
+  .card--video .card__type-dot { background: oklch(0.55 0.20 25); }
+  .card__video { padding: 0 14px; }
+  .card__video-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #1a1a18;
+    background-image:
+      radial-gradient(circle at 30% 35%, #2a2a26 0%, transparent 55%),
+      radial-gradient(circle at 70% 65%, #252521 0%, transparent 55%);
+  }
+  .card__video-noise {
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg,
+        rgba(255,255,255,0.012) 0 1px,
+        transparent 1px 3px);
+    pointer-events: none;
+  }
+  .card__video-rec {
+    appearance: none;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    background: transparent;
+    width: 48px; height: 48px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    transition: border-color 120ms ease, transform 120ms ease;
+  }
+  .card__video-rec:hover { border-color: rgba(255, 255, 255, 0.7); }
+  .card__video-dot {
+    width: 18px; height: 18px;
+    background: oklch(0.55 0.20 25);
+    border-radius: 999px;
+    transition: border-radius 160ms ease, transform 160ms ease;
+  }
+  .card__video-rec.is-recording {
+    border-color: oklch(0.55 0.20 25);
+    animation: pulse-ring 1.2s infinite;
+  }
+  .card__video-rec.is-recording .card__video-dot {
+    border-radius: 4px;
+    transform: scale(0.7);
+  }
+  .card__video-label,
+  .card__video-time {
+    position: absolute;
+    bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    z-index: 1;
+  }
+  .card__video-label { left: 10px; }
+  .card__video-time  { right: 10px; }
+  
+  /* Toast de confirmação para "copiar código" — discreto. */
+  .toast {
+    position: fixed;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease;
+  }
+  .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     FASE 3 — Storyboard, Stickers, Mini-mapa
+     ════════════════════════════════════════════════════════════════════ */
+  
+  /* HUD top-right — espelha a HUD bottom-right (zoom) */
+  .hud--topright {
+    top: 20px;
+    right: 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 6px;
+    box-shadow: var(--shadow-card);
+    gap: 2px;
+  }
+  .hud__count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    padding: 0 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    min-width: 0;
+  }
+  .hud--topright .hud__btn--text { font-size: 12px; color: var(--ink); }
+  .hud--topright .hud__btn.is-active {
+    background: var(--ink);
+    color: var(--bg-elevated);
+  }
+  .hud--topright .hud__btn.is-playing {
+    background: oklch(0.55 0.20 25);
+    color: var(--bg-elevated);
+    animation: pulse-ring 1.2s infinite;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     FRAME CARD — moldura transúlcida
+     ──────────────────────────────────────────────────────────────────── */
+  .card--frame {
+    background: rgba(253, 252, 249, 0.55);
+    backdrop-filter: blur(2px);
+    box-shadow: none;
+    border: 1px dashed rgba(107, 106, 100, 0.45);
+  }
+  .card--frame:hover {
+    border-color: rgba(107, 106, 100, 0.75);
+    box-shadow: var(--shadow-card);
+  }
+  .card--frame .card__type-dot { background: var(--ink); }
+  .card--frame .card__handle   {
+    opacity: 0.55;
+  }
+  .card--frame:hover .card__handle { opacity: 1; }
+  
+  .card__frame {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 36px 14px 14px;
+    gap: 10px;
+  }
+  .card__frame-number {
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  .card__frame-ratio {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  .card__frame-contents {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .card__frame-contents:empty { display: none; }
+  
+  /* Cards CONTIDOS num frame: posicionamento normal de fluxo,
+     largura total, chrome reduzido. Travamos com !important pq o JS
+     pode ter setado style.left/top/width antes do attach.              */
+  .card__frame-contents > .card {
+    position: relative !important;
+    left: auto !important;
+    top:  auto !important;
+    width: 100% !important;
+    max-width: none;
+    min-width: 0;
+    z-index: auto !important;
+    box-shadow: none;
+    border-color: var(--line);
+  }
+  .card__frame-contents > .card:hover {
+    box-shadow: var(--shadow-card);
+  }
+  .card__frame-contents > .card.card--image {
+    /* Imagem preenche o frame em largura, altura segue proporção. */
+  }
+  .card__frame-contents > .card .card__close { opacity: 0; }
+  .card__frame-contents > .card:hover .card__close { opacity: 1; }
+  
+  .card__frame-label {
+    outline: none;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    min-height: 18px;
+    cursor: text;
+    white-space: pre-wrap;
+    margin-top: auto;     /* empurra para o final do flex-column */
+    padding-top: 8px;
+    border-top: 1px dashed transparent;
+  }
+  .card__frame-label:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+  }
+  
+  /* Modo storyboard ATIVO: revela numeração + dim non-frames soltos */
+  body.is-storyboard .card--frame .card__frame-number { opacity: 1; }
+  body.is-storyboard #world > .card:not(.card--frame) { opacity: 0.45; }
+  body.is-storyboard #world > .card:not(.card--frame):hover { opacity: 0.85; }
+  body.is-storyboard .draw-layer { opacity: 0.5; }
+  body.is-storyboard .card--frame {
+    background: rgba(253, 252, 249, 0.7);
+    border-color: var(--accent);
+    border-style: solid;
+  }
+  body.is-storyboard .card--frame .card__type-dot { background: var(--accent); }
+  
+  /* Durante o PLAY (fly-through), bloqueia hover effects */
+  body.is-playing .card { pointer-events: none; }
+  body.is-playing .draw-fab,
+  body.is-playing .minimap,
+  body.is-playing .context-menu { opacity: 0.3; pointer-events: none; }
+  
+  /* Badge grande durante o play */
+  .play-badge {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 22px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-pop);
+    font-family: var(--font-mono);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+  .play-badge.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .play-badge__index {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .play-badge__label {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--ink);
+    max-width: 360px;
+    text-align: center;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     STICKER — glifo mínimo no world
+     ──────────────────────────────────────────────────────────────────── */
+  .sticker {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+    cursor: grab;
+    user-select: none;
+    transition: transform 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sticker:hover { transform: scale(1.08); }
+  .sticker:active { cursor: grabbing; }
+  .sticker__glyph {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(40,35,25,0.10));
+  }
+  .sticker__close {
+    appearance: none; border: 0;
+    background: var(--bg-elevated);
+    color: var(--ink-soft);
+    width: 16px; height: 16px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    position: absolute;
+    top: -4px; right: -4px;
+    cursor: pointer;
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    z-index: 1;
+  }
+  .sticker:hover .sticker__close { opacity: 1; }
+  
+  /* Paleta de stickers */
+  .sticker-palette {
+    position: fixed;
+    z-index: 90;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pop);
+    box-shadow: var(--shadow-pop);
+    padding: 10px;
+    width: 200px;
+    animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sticker-palette__title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    padding: 0 2px 8px;
+  }
+  .sticker-palette__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .sticker-palette__item {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 8px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ink);
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .sticker-palette__item:hover {
+    background: var(--bg);
+    border-color: var(--line);
+  }
+  .sticker-palette__item svg { width: 22px; height: 22px; }
+  .sticker-palette__hint {
+    margin-top: 8px;
+    padding: 0 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     MINI-MAPA
+     ──────────────────────────────────────────────────────────────────── */
+  .minimap {
+    position: fixed;
+    bottom: 64px;
+    right: 24px;
+    width: 184px;
+    height: 124px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    z-index: 9;
+    overflow: hidden;
+    cursor: crosshair;
+    /* dot grid sutil dentro do mapa para amarrar com a estética */
+    background-image: radial-gradient(circle, var(--dot) 0.5px, transparent 0.6px);
+    background-size: 8px 8px;
+  }
+  .minimap__label {
+    position: absolute;
+    top: 4px; left: 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .minimap__svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .minimap:hover .minimap__viewport { stroke-width: 2.5px; }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     FASE 4 — Snap-into-frame badges + sticker behaviors
+     ════════════════════════════════════════════════════════════════════ */
+  
+  /* (Badge legado .card__in-frame foi removido: cards filiados agora
+     ficam visualmente dentro do frame — a contenção é a affordance.) */
+  
+  /* Contador no frame */
+  .card__frame-count {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    text-transform: lowercase;
+  }
+  body.is-storyboard .card__frame-count { color: var(--accent); }
+  
+  /* ────────────────────────────────────────────────────────────────────
+     STICKER BEHAVIORS — animações no glifo interno
+     Motivo: a .sticker em si usa transform p/ hover. Animar o
+     .sticker__glyph evita conflito de transform.
+     ──────────────────────────────────────────────────────────────────── */
+  
+  @media (prefers-reduced-motion: no-preference) {
+    .sticker--pulse .sticker__glyph {
+      animation: sticker-pulse 2.2s ease-in-out infinite;
+      transform-origin: center;
+    }
+    @keyframes sticker-pulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.12); }
+    }
+  
+    .sticker--spin .sticker__glyph {
+      animation: sticker-spin 8s linear infinite;
+      transform-origin: center;
+    }
+    @keyframes sticker-spin {
+      to { transform: rotate(360deg); }
+    }
+  
+    .sticker--sparkle::before,
+    .sticker--sparkle::after {
+      content: "";
+      position: absolute;
+      width: 4px; height: 4px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 0 6px oklch(0.55 0.17 295 / 0.6);
+    }
+    .sticker--sparkle::before {
+      top: -2px; right: 2px;
+      animation: sticker-sparkle 2.4s ease-in-out infinite 0s;
+    }
+    .sticker--sparkle::after {
+      bottom: 2px; left: -2px;
+      animation: sticker-sparkle 2.4s ease-in-out infinite 1.2s;
+    }
+    @keyframes sticker-sparkle {
+      0%, 100% { opacity: 0; transform: scale(0.4); }
+      40%, 60% { opacity: 0.95; transform: scale(1.3); }
+    }
+  }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     PROJETO — rótulo de área (sem chrome) + painel
+     ════════════════════════════════════════════════════════════════════ */
+  
+  .card--project {
+    background: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+    min-width: 240px;
+    transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  }
+  .card--project:hover {
+    background: var(--bg-elevated);
+    border-color: var(--line);
+    box-shadow: var(--shadow-card);
+  }
+  .card--project .card__handle {
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  .card--project:hover .card__handle { opacity: 1; }
+  .card--project .card__type-dot { background: var(--accent); }
+  
+  .card__project {
+    padding: 0 18px 16px;
+  }
+  .card__project-kicker {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+    margin-top: 2px;
+  }
+  .card__project-name {
+    font-family: var(--font-sans);
+    font-size: 42px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--ink);
+    outline: none;
+    cursor: text;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 200px;
+    min-height: 44px;
+  }
+  .card__project-name:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+    font-weight: 300;
+  }
+  
+  /* Painel "projetos" — mesma linguagem do sticker-palette */
+  .projects-panel {
+    position: fixed;
+    z-index: 90;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pop);
+    box-shadow: var(--shadow-pop);
+    padding: 10px;
+    width: 260px;
+    max-height: 360px;
+    overflow-y: auto;
+    animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .projects-panel__title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    padding: 0 2px 10px;
+  }
+  .projects-panel__list { display: flex; flex-direction: column; gap: 2px; }
+  .projects-panel__item {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: inherit;
+    color: var(--ink);
+    transition: background 80ms ease;
+  }
+  .projects-panel__item {
+    position: relative;
+  }
+  .projects-panel__item:hover { background: var(--accent-soft); }
+  .projects-panel__item.is-active {
+    background: var(--accent-soft);
+  }
+  .projects-panel__item.is-active .projects-panel__name {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .projects-panel__current {
+    font-size: 8px;
+    color: var(--accent);
+    width: 10px;
+    text-align: center;
+    line-height: 1;
+  }
+  .projects-panel__del {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-faint);
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  }
+  .projects-panel__item:hover .projects-panel__del { opacity: 1; }
+  .projects-panel__del:hover {
+    background: var(--bg);
+    color: oklch(0.55 0.20 25);
+  }
+  .projects-panel__name[contenteditable="true"] {
+    outline: none;
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 0 4px;
+    margin: 0 -4px;
+    cursor: text;
+  }
+  
+  .projects-panel__new {
+    appearance: none;
+    width: 100%;
+    border: 1px dashed var(--line);
+    background: transparent;
+    border-radius: 6px;
+    padding: 9px 10px;
+    margin-top: 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+  }
+  .projects-panel__new:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .projects-panel__plus {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1;
+  }
+  
+  .projects-panel__index {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+  .projects-panel__name { flex: 1; font-size: 13px; }
+  .projects-panel__name em { color: var(--ink-faint); font-style: normal; }
+  .projects-panel__go {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--ink-faint);
+  }
+  .projects-panel__item:hover .projects-panel__go { color: var(--accent); }
+  
+  .projects-panel__empty {
+    padding: 18px 10px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+  .projects-panel__hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+    margin-top: 6px;
+    display: block;
+  }
+  .projects-panel__hint strong { color: var(--ink); font-weight: 500; }
+  
+  
+  /* ════════════════════════════════════════════════════════════════════
+     MODAL DE TEMPLATES — picker "novo canvas"
+     ════════════════════════════════════════════════════════════════════ */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 26, 24, 0.32);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    padding: 24px;
+  }
+  .modal-overlay.is-visible { opacity: 1; }
+  .modal-overlay.is-leaving { opacity: 0; }
+  .modal {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(26, 26, 24, 0.22), 0 4px 12px rgba(26, 26, 24, 0.10);
+    max-width: 640px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 28px;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .modal-overlay.is-visible .modal { transform: translateY(0) scale(1); }
+  .modal__head { margin-bottom: 20px; }
+  .modal__title { font-size: 18px; font-weight: 600; color: var(--ink); margin: 0 0 4px; letter-spacing: 0.01em; }
+  .modal__subtitle { font-size: 13px; color: var(--ink-soft); margin: 0; }
+  .modal__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .template-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    padding: 16px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; cursor: pointer; text-align: left;
+    transition: border-color 0.14s ease, background 0.14s ease, transform 0.1s ease;
+    font-family: var(--font-sans);
+  }
+  .template-card:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-2px); }
+  .template-card__icon { font-size: 22px; color: var(--accent); line-height: 1; }
+  .template-card__name { font-size: 14px; font-weight: 500; color: var(--ink); }
+  .template-card__desc { font-size: 12px; color: var(--ink-soft); line-height: 1.4; }
+  .modal__foot { margin-top: 20px; display: flex; justify-content: flex-end; }
+  .modal__cancel {
+    padding: 8px 16px; background: transparent; border: 1px solid var(--line);
+    border-radius: 8px; color: var(--ink-soft); font-size: 13px; cursor: pointer;
+    font-family: var(--font-sans); transition: background 0.14s ease, color 0.14s ease;
+  }
+  .modal__cancel:hover { background: var(--bg); color: var(--ink); }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     WATERMARK MANUSCRITO — revelação progressiva (estilo "hello" da Apple)
+     ────────────────────────────────────────────────────────────────────
+     O texto aparece da esquerda para a direita via clip-path animado,
+     simulando a escrita à mão. Fonte manuscrita com cadeia de fallback.
+     ════════════════════════════════════════════════════════════════════ */
+  .canvas-watermark {
+    position: absolute;
+    transform: translateX(-50%);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .canvas-watermark__text {
+    display: inline-block;
+    font-family: 'Homemade Apple', 'Caveat', 'Kalam', 'Bradley Hand', 'Brush Script MT', cursive;
+    font-size: 56px;
+    line-height: 1.2;
+    color: rgba(26, 26, 24, 0.78);
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+    /* Estado inicial: totalmente escondido pela direita. */
+    clip-path: inset(0 100% 0 0);
+  }
+  /* Revelação: o clip da direita encolhe até 0, revelando o texto. */
+  .canvas-watermark.is-writing .canvas-watermark__text {
+    animation: watermark-write 2.2s cubic-bezier(0.45, 0.05, 0.3, 1) forwards;
+  }
+  @keyframes watermark-write {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+  }
+  /* Saída suave. */
+  .canvas-watermark.is-leaving {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     PAINEL DE PROJETOS — galeria com preview ao vivo
+     ════════════════════════════════════════════════════════════════════ */
+  .projects-panel--gallery {
+    width: 340px;
+    max-height: 460px;
+    padding: 14px;
+  }
+  .projects-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 12px;
+  }
+  .projects-panel__head .projects-panel__title { padding: 0; }
+  .projects-panel__new {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: border-color 0.14s ease, background 0.14s ease;
+  }
+  .projects-panel__new:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .projects-panel__plus { font-size: 14px; line-height: 1; color: var(--accent); }
+  
+  .projects-panel__gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .proj-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-elevated);
+    cursor: pointer;
+    transition: border-color 0.14s ease, transform 0.1s ease, box-shadow 0.14s ease;
+    position: relative;
+  }
+  .proj-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-card); }
+  .proj-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .proj-card__preview {
+    width: 100%;
+    height: 96px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .proj-preview__svg { width: 100%; height: 100%; display: block; }
+  .proj-card__meta {
+    padding: 8px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .proj-card__name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .proj-card.is-active .proj-card__name { color: var(--accent); }
+  .proj-card__count {
+    font-size: 10px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .proj-card__actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.14s ease;
+  }
+  .proj-card:hover .proj-card__actions { opacity: 1; }
+  .proj-card__btn {
+    appearance: none;
+    border: 0;
+    background: rgba(253, 252, 249, 0.92);
+    box-shadow: 0 1px 3px rgba(26,26,24,0.18);
+    color: var(--ink-soft);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+  .proj-card__btn:hover { color: var(--accent); background: var(--bg-elevated); }
+  .proj-card__del:hover { color: oklch(0.55 0.20 25); }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     PAINEL DE PROJETOS — rodapé export/import
+     ════════════════════════════════════════════════════════════════════ */
+  .projects-panel__foot {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .projects-panel__io {
+    flex: 1;
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 10.5px;
+    padding: 7px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-align: center;
+    line-height: 1.1;
+    transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
+  }
+  .projects-panel__io:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .projects-panel__io svg { display: block; }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     COLABORAÇÃO — cursores remotos, badge de conexão
+     ════════════════════════════════════════════════════════════════════ */
+  
+  /* Camada dos cursores: cobre a tela toda, não intercepta cliques. */
+  .collab-cursors {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9500;
+    overflow: hidden;
+  }
+  .collab-cursor {
+    position: absolute;
+    top: 0; left: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    will-change: transform;
+    transition: transform 0.08s linear;
+  }
+  .collab-cursor svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3)); }
+  .collab-cursor__name {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    margin-top: 10px;
+    margin-left: -2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  
+  /* Badge de status no canto inferior esquerdo. */
+  .collab-badge {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 9600;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .collab-badge__dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    transition: background 0.2s ease;
+  }
+  .collab-badge.is-connected .collab-badge__dot {
+    background: #0B861D;
+    box-shadow: 0 0 0 3px rgba(11, 134, 29, 0.18);
+  }
+  .collab-badge__peers {
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--bg);
+    border-radius: 999px;
+    padding: 0 6px;
+    min-width: 16px;
+    text-align: center;
+  }
+  .collab-badge__peers::before { content: '👥 '; }
+  
+  /* Botão colaborar ativo. */
+  #collab-toggle.is-active {
+    color: #0B861D;
+  }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     CONEXÕES ENTRE CARDS (fluxograma)
+     ════════════════════════════════════════════════════════════════════ */
+  
+  /* Modo conectar ativo: cursor de mira e cards "clicáveis". */
+  body.is-connecting { cursor: crosshair; }
+  body.is-connecting .card { cursor: crosshair; }
+  body.is-connecting .card:hover {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .card.is-connect-source {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  
+  /* Botão conectar ativo. */
+  #connect-toggle.is-active { color: var(--accent); }
+  
+  /* Mini-menu da conexão selecionada. */
+  .conn-menu {
+    position: fixed;
+    z-index: 9700;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow-pop, 0 8px 24px rgba(26,26,24,0.18));
+  }
+  .conn-menu__group { display: inline-flex; gap: 2px; }
+  .conn-menu__btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .conn-menu__btn:hover { background: var(--bg); color: var(--ink); }
+  .conn-menu__btn.is-active { background: var(--accent-soft); color: var(--accent); }
+  .conn-menu__del:hover { background: var(--bg); color: oklch(0.55 0.20 25); }
+  .conn-menu__label {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 12px;
+    width: 90px;
+    color: var(--ink);
+    outline: none;
+  }
+  .conn-menu__label:focus { border-color: var(--accent); }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     FORMAS DE FLUXOGRAMA
+     ────────────────────────────────────────────────────────────────────
+     A geometria vem de clip-path no .card__shape-fill. O texto fica
+     centralizado por cima. O handle (barra de arrasto) some na forma —
+     o card inteiro é arrastável pela própria forma.
+     ════════════════════════════════════════════════════════════════════ */
+  
+  .card--shape {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0;
+  }
+  /* Esconde o handle padrão; mostra só um indicador discreto no hover. */
+  .card--shape .card__handle {
+    position: absolute;
+    top: -22px; left: 0; right: 0;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    background: transparent;
+    border: none;
+  }
+  .card--shape:hover .card__handle { opacity: 1; }
+  
+  .card__shape {
+    position: relative;
+    width: 100%;
+    /* Preenche altura do card → shape-fill (absolute inset:0) cresce junto. */
+    flex: 1 1 auto;
+    min-height: 60px;
+  }
+  .card__shape-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-elevated);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card__shape-text {
+    outline: none;
+    text-align: center;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    padding: 8px 16px;
+    width: 100%;
+    min-height: 1em;
+  }
+  .card__shape-text:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+  }
+  
+  /* Geometria por forma via clip-path SEM rotação/skew: hitbox bate com
+     a forma visível, âncoras ficam alinhadas, texto não precisa contra-
+     transformação. A borda é feita por um SVG interno para acompanhar
+     o clip; ver .card__shape-outline. */
+
+  /* Oval (início/fim) — cantos totalmente arredondados via border-radius. */
+  .shape--oval .card__shape-fill {
+    border-radius: 999px;
+  }
+  /* Processo — retângulo levemente arredondado. */
+  .shape--process .card__shape-fill {
+    border-radius: 6px;
+  }
+  /* Decisão — LOSANGO de verdade (mais largo que alto). Pontas nas laterais. */
+  .shape--decision .card__shape-fill {
+    border: none;                     /* borda vai pelo SVG interno */
+    background: transparent;
+    clip-path: none;                  /* nada — o SVG desenha a forma */
+  }
+  .shape--decision .card__shape-text {
+    padding: 8px 30px;                /* garante espaço lateral para o "bico" */
+  }
+  /* Dados — paralelogramo real (pontas laterais inclinadas). */
+  .shape--data .card__shape-fill {
+    border: none;
+    background: transparent;
+    clip-path: none;
+  }
+  .shape--data .card__shape-text {
+    padding: 8px 28px;
+  }
+
+  /* SVG interno usado por decision/data para desenhar a forma real
+     (preenchimento + borda). Cobre o card por baixo do texto. */
+  .card__shape-outline {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: block;
+  }
+  .card__shape-outline path {
+    fill: var(--bg-elevated);
+    stroke: var(--accent);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  
+  /* Card ativo (selecionado) realça a forma. */
+  .card--shape.is-active .card__shape-fill {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  
+  /* ════════════════════════════════════════════════════════════════════
+     ÂNCORAS DE CONEXÃO (arrastar da borda)
+     ════════════════════════════════════════════════════════════════════ */
+  .card-anchors {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;   /* só as âncoras capturam */
+  }
+  .card-anchor {
+    position: absolute;
+    width: 12px; height: 12px;
+    margin: -6px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-elevated);
+    box-shadow: 0 1px 3px rgba(26,26,24,0.3);
+    cursor: crosshair;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.12s ease, transform 0.1s ease;
+    z-index: 10;
+  }
+  .card:hover .card-anchor { opacity: 1; }
+  .card-anchor:hover { transform: scale(1.4); }
+  .card-anchor--top    { top: 0;    left: 50%; }
+  .card-anchor--bottom { bottom: 0; left: 50%; margin-top: 0; margin-bottom: -6px; top: auto; }
+  .card-anchor--left   { left: 0;   top: 50%; }
+  .card-anchor--right  { right: 0;  top: 50%; margin-right: -6px; left: auto; }
+  
+  /* Card sendo mirado como alvo durante o arrasto de conexão. */
+  .card.is-drop-target {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  body.is-anchor-dragging { cursor: crosshair; }
+  body.is-anchor-dragging .card { cursor: crosshair; }
+  /* ════════════════════════════════════════════════════════════════════
+   SELEÇÃO + RESIZE + FULL-BODY DRAG
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Seleção visual ─────────────────────────────────────────────── */
+.card.is-selected {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-pop), 0 0 0 2px var(--accent-soft);
+}
+.card--shape.is-selected .card__shape-fill {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ── Resize handles nos 4 cantos ────────────────────────────────── */
+.card__resize {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.card:hover .card__resize,
+.card.is-selected .card__resize { opacity: 1; }
+
+.card__resize::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--accent);
+  border: 1.5px solid var(--bg-elevated);
+  border-radius: 2px;
+}
+.card__resize--nw { top: -6px;    left: -6px;   cursor: nwse-resize; }
+.card__resize--ne { top: -6px;    right: -6px;  cursor: nesw-resize; }
+.card__resize--sw { bottom: -6px; left: -6px;   cursor: nesw-resize; }
+.card__resize--se { bottom: -6px; right: -6px;  cursor: nwse-resize; }
+
+/* Durante resize: bloqueia interação interna */
+.card.is-resizing {
+  user-select: none !important;
+}
+.card.is-resizing * {
+  pointer-events: none !important;
+}
+
+/* ── Full-body drag: cursors contextuais ─────────────────────────── */
+/* Cursor "texto" só aparece quando o elemento está em modo edição
+   (contenteditable=true). Em modo normal, cursor padrão indica "clique
+   pra selecionar" — coerente com o novo padrão click-to-select. */
+.card .card__note[contenteditable="true"],
+.card .card__code[contenteditable="true"],
+.card .card__shape-text[contenteditable="true"],
+.card .card__frame-label[contenteditable="true"] { cursor: text; }
+/* Em modo seleção (não editando), texto não-selecionável para evitar
+   conflito com o drag do card. Duplo-clique entra em edição. */
+.card .card__note:not([contenteditable="true"]),
+.card .card__code:not([contenteditable="true"]),
+.card .card__shape-text:not([contenteditable="true"]) {
+  user-select: none;
+  cursor: default;
+}
+
+/* Shapes: o fill inteiro é arrastável */
+.card--shape .card__shape-fill { cursor: grab; }
+.card--shape:active .card__shape-fill { cursor: grabbing; }
+
+
+/* ── Resize handles — ARESTAS (horizontal / vertical) ────────────── */
+.card__resize--n {
+  top: -4px;    left: 50%;  transform: translateX(-50%);
+  width: 24px;  height: 8px;
+  cursor: ns-resize;
+}
+.card__resize--s {
+  bottom: -4px; left: 50%;  transform: translateX(-50%);
+  width: 24px;  height: 8px;
+  cursor: ns-resize;
+}
+.card__resize--e {
+  right: -4px;  top: 50%;   transform: translateY(-50%);
+  width: 8px;   height: 24px;
+  cursor: ew-resize;
+}
+.card__resize--w {
+  left: -4px;   top: 50%;   transform: translateY(-50%);
+  width: 8px;   height: 24px;
+  cursor: ew-resize;
+}
+
+/* Arestas: barra fina em vez de quadrado */
+.card__resize--n::after,
+.card__resize--s::after {
+  inset: 2px 4px;
+  border-radius: 2px;
+}
+.card__resize--e::after,
+.card__resize--w::after {
+  inset: 4px 2px;
+  border-radius: 2px;
+}
+
+/* Sticker selecionado */
+.sticker.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   YOUTUBE OVERLAY — permite selecionar card com iframe
+   ────────────────────────────────────────────────────────────────────
+   Quando NÃO selecionado: overlay captura cliques → seleciona card.
+   Quando selecionado: overlay fica transparente → iframe interativo.
+   ════════════════════════════════════════════════════════════════════ */
+   .card__yt-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    cursor: pointer;
+  }
+  .card.is-selected .card__yt-overlay {
+    pointer-events: none;
+  }
+  
+  /* ── Sticker selecionado ─────────────────────────────────────────── */
+  .sticker.is-selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 8px;
+  }
+  
+  /* ── Resize handles — ARESTAS (N, S, E, W) ──────────────────────── */
+  .card__resize--n {
+    top: -4px;    left: 50%;  transform: translateX(-50%);
+    width: 24px;  height: 8px;
+    cursor: ns-resize;
+  }
+  .card__resize--s {
+    bottom: -4px; left: 50%;  transform: translateX(-50%);
+    width: 24px;  height: 8px;
+    cursor: ns-resize;
+  }
+  .card__resize--e {
+    right: -4px;  top: 50%;   transform: translateY(-50%);
+    width: 8px;   height: 24px;
+    cursor: ew-resize;
+  }
+  .card__resize--w {
+    left: -4px;   top: 50%;   transform: translateY(-50%);
+    width: 8px;   height: 24px;
+    cursor: ew-resize;
+  }
+  
+  /* Arestas: barra fina */
+  .card__resize--n::after,
+  .card__resize--s::after {
+    inset: 2px 4px;
+    border-radius: 2px;
+  }
+  .card__resize--e::after,
+  .card__resize--w::after {
+    inset: 4px 2px;
+    border-radius: 2px;
+  }
+/* ════════════════════════════════════════════════════════════════════
+   NOVO — Cards de BANCO DE DADOS (db-table) e UML
+   ────────────────────────────────────────────────────────────────────
+   Design: monoespaçado leve, borda discreta, header colorido por tipo.
+   Ler como esquema, editar como qualquer nota.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Base compartilhada — header + corpo tabular. */
+.card--db-table,
+.card--uml-class {
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.card--db-table .card__handle,
+.card--uml-class .card__handle {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+}
+
+/* ───── DB TABLE ───── */
+.card__db {
+  padding: 0;
+}
+.card__db-name {
+  padding: 8px 12px 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  outline: none;
+  background: color-mix(in oklch, var(--accent-soft) 30%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.card__db-name:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+.card__db-cols {
+  display: flex;
+  flex-direction: column;
+}
+.card__db-col {
+  display: grid;
+  grid-template-columns: 22px 1fr 90px 22px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid color-mix(in oklch, var(--line) 60%, transparent);
+  position: relative;
+}
+.card__db-col:last-child {
+  border-bottom: none;
+}
+.card__db-col:hover {
+  background: color-mix(in oklch, var(--accent-soft) 20%, transparent);
+}
+.card__db-flag {
+  font-size: 9px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--ink-faint);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 3px;
+  border-radius: 3px;
+}
+.card__db-flag[data-active="1"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.card__db-flag[data-kind="pk"][data-active="1"] {
+  color: oklch(0.55 0.15 60);
+  background: color-mix(in oklch, oklch(0.55 0.15 60) 18%, transparent);
+}
+.card__db-flag[data-kind="fk"][data-active="1"] {
+  color: oklch(0.55 0.13 220);
+  background: color-mix(in oklch, oklch(0.55 0.13 220) 18%, transparent);
+}
+.card__db-colname,
+.card__db-coltype {
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  min-height: 1.2em;
+}
+.card__db-coltype {
+  color: var(--ink-soft);
+  text-align: right;
+  font-size: 11px;
+}
+.card__db-colname:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+.card__db-coltype:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+.card__db-del {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+.card__db-col:hover .card__db-del { opacity: 1; }
+.card__db-del:hover { color: oklch(0.55 0.20 25); }
+.card__db-add {
+  appearance: none;
+  border: 0;
+  border-top: 1px dashed var(--line);
+  background: transparent;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink-faint);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.card__db-add:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ───── UML CLASS ───── */
+.card__uml-class {
+  padding: 0;
+}
+.card__uml-name {
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklch, var(--accent-soft) 30%, transparent);
+}
+.card__uml-name:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+.card__uml-section {
+  padding: 6px 10px;
+  min-height: 24px;
+  outline: none;
+  border-bottom: 1px solid var(--line);
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+.card__uml-section:last-child {
+  border-bottom: none;
+}
+.card__uml-section:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+
+/* ───── UML ATOR ───── */
+.card--uml-actor {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+.card--uml-actor .card__handle {
+  background: transparent;
+  border: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.card--uml-actor:hover .card__handle { opacity: 1; }
+.card__uml-actor {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px;
+}
+.card__uml-actor svg {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+}
+.card__uml-actor-label {
+  outline: none;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink);
+  padding: 4px 6px;
+  min-height: 1.2em;
+  width: 100%;
+}
+.card__uml-actor-label:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+
+/* ───── UML USE CASE (elipse) ───── */
+.card--uml-usecase {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+.card--uml-usecase .card__handle {
+  background: transparent;
+  border: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.card--uml-usecase:hover .card__handle { opacity: 1; }
+.card__uml-usecase {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card__uml-usecase-ellipse {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+}
+.card__uml-usecase-text {
+  position: relative;
+  outline: none;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink);
+  padding: 10px 26px;
+  z-index: 1;
+}
+.card__uml-usecase-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+
+/* ───── UML NOTE (pos-it dobrado) ───── */
+.card--uml-note {
+  background: color-mix(in oklch, oklch(0.90 0.08 90) 60%, var(--bg-elevated));
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.card__uml-note {
+  padding: 24px 10px 10px;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink);
+  min-height: 60px;
+  white-space: pre-wrap;
+  position: relative;
+}
+.card__uml-note::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  border-width: 0 12px 12px 0;
+  border-style: solid;
+  border-color: transparent var(--line) var(--line) transparent;
+}
+.card__uml-note:empty::after {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Pan por barra de espaço / botão do meio
+   ════════════════════════════════════════════════════════════════════ */
+body.is-space-pan .viewport,
+body.is-space-pan .card {
+  cursor: grab !important;
+}
+body.is-space-pan .viewport.is-panning {
+  cursor: grabbing !important;
+}
+
+/* Grupos secundários do conn-menu (UML/BD) — escondidos até "…" abrir. */
+.conn-menu__more {
+  font-weight: 700;
+}
+.conn-menu__uml,
+.conn-menu__db {
+  border-left: 1px solid var(--line);
+  padding-left: 4px;
+  margin-left: 2px;
+}
+.conn-menu__db .conn-menu__btn {
+  width: auto;
+  padding: 0 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+/* Selecionado: destaca o SVG das shapes decision/data. */
+.card--shape.is-selected .card__shape-outline path {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 0 var(--accent-soft));
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SPRINT 4 — Paleta de cores expandida do FAB
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Container de cores: agora aceita várias em duas linhas se necessário. */
+.draw-fab__colors {
+  display: none;                    /* aparece só com .is-expanded */
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 6px;
+  align-items: center;
+  max-width: 220px;
+}
+.draw-fab.is-expanded .draw-fab__colors { display: flex; }
+
+/* Cada bolinha de cor — reduzida para caber a paleta expandida. */
+.draw-fab__color {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--c);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease;
+  box-shadow: 0 0 0 1px rgba(26,26,24,0.08);  /* contorno sutil p/ brancos */
+}
+.draw-fab__color:hover { transform: scale(1.2); }
+.draw-fab__color.is-active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--bg-elevated) inset;
+}
+
+/* Botão de cor customizada — abre color picker nativo. */
+.draw-fab__color-custom {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.5px dashed var(--ink-faint);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 120ms ease, transform 120ms ease;
+  background: var(--bg-elevated);
+}
+.draw-fab__color-custom:hover {
+  border-color: var(--accent);
+  transform: scale(1.2);
+}
+.draw-fab__color-custom-icon {
+  font-size: 10px;
+  color: var(--ink-faint);
+  line-height: 1;
+  pointer-events: none;
+}
+.draw-fab__color-custom:hover .draw-fab__color-custom-icon {
+  color: var(--accent);
+}
+/* Input color nativo escondido — só o wrapper é visível. */
+.draw-fab__color-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+/* Editor dark tipo VS Code — combina com oneDark */
+.card__ide-editor {
+  background: #282c34;
+  border-right: 1px solid #1e2127;
+}
+.card__ide-editor .cm-editor {
+  height: 100%;
+  background: transparent;
+}
+.card__ide-editor .cm-scroller {
+  font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+}
+
+/* Toolbar em cima também escurece pra amarrar visual */
+.card--ide .card__ide-toolbar {
+  background: #21252b;
+  border-bottom: 1px solid #1e2127;
+}
+.card--ide .card__ide-tab {
+  color: #9ba3af;
+}
+.card--ide .card__ide-tab:hover {
+  background: #2c313a;
+  color: #e5e7eb;
+}
+.card--ide .card__ide-tab.is-active {
+  background: #282c34;
+  color: #61afef;   /* azul VS Code */
+}
+.card--ide .card__ide-run,
+.card--ide .card__ide-clear {
+  background: #2c313a;
+  border-color: #1e2127;
+  color: #e5e7eb;
+}
+.card--ide .card__ide-run:hover {
+  border-color: #61afef;
+  color: #61afef;
+  background: #282c34;
+}
+
+/* Output panel dark também */
+.card--ide .card__ide-preview { background: #1e2127; }
+.card--ide .card__ide-output {
+  background: #21252b;
+  color: #e5e7eb;
+  border-top: 1px solid #1e2127;
+}
+.card--ide .card__ide-output-empty { color: #6b7280; }
+.card--ide .card__ide-sql-table th,
+.card--ide .card__ide-sql-table td { border-color: #3a3f4b; }
+.card--ide .card__ide-sql-table th { background: #2c313a; color: #9ba3af; }
+
+/* ════════════════════════════════════════════════════════════════════
+   IDE CARD — editor fullscreen, tema dark, 1 linguagem por card
+   ════════════════════════════════════════════════════════════════════ */
+
+   .card--ide { min-width: 320px; min-height: 220px; }
+   .card--ide .card__type-dot { background: #61afef; }
+   
+   /* Body do card em flex column, ocupa 100% do espaço */
+   .card__ide {
+     display: flex;
+     flex-direction: column;
+     flex: 1 1 auto;
+     min-height: 0;
+     border-radius: 0 0 var(--radius-card) var(--radius-card);
+     overflow: hidden;
+     background: #282c34;
+   }
+   
+   /* Toolbar compacta */
+   .card__ide-toolbar {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     padding: 4px 8px;
+     background: #21252b;
+     border-bottom: 1px solid #1e2127;
+     flex-shrink: 0;
+   }
+   .card__ide-lang {
+     font-family: var(--font-mono);
+     font-size: 10px;
+     letter-spacing: 0.08em;
+     text-transform: uppercase;
+     color: #61afef;
+     flex: 1;
+   }
+   .card__ide-actions { display: flex; gap: 4px; }
+   .card__ide-run,
+   .card__ide-clear {
+     appearance: none;
+     border: 1px solid #1e2127;
+     background: #2c313a;
+     padding: 3px 10px;
+     border-radius: 6px;
+     font-family: var(--font-mono);
+     font-size: 11px;
+     color: #e5e7eb;
+     cursor: pointer;
+     transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+   }
+   .card__ide-run:hover  { border-color: #61afef; color: #61afef; }
+   .card__ide-clear:hover { border-color: #e06c75; color: #e06c75; }
+   
+   /* Editor: ocupa TODO o espaço disponível */
+   .card__ide-editor {
+     flex: 1 1 auto;
+     min-height: 0;
+     overflow: hidden;
+     background: #282c34;
+   }
+   .card__ide-editor .cm-editor {
+     height: 100%;
+     background: transparent;
+   }
+   .card__ide-editor .cm-scroller {
+     font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+   }
+   
+   /* Preview aparece embaixo depois de Run (55% editor, 45% preview) */
+   .card__ide-preview {
+     flex: 0 0 45%;
+     min-height: 0;
+     display: flex;
+     flex-direction: column;
+     border-top: 1px solid #1e2127;
+     background: #1e2127;
+     overflow: hidden;
+   }
+   .card__ide-preview[hidden] { display: none; }
+   
+   .card__ide-iframe {
+     flex: 1 1 60%;
+     width: 100%;
+     border: 0;
+     background: #fff;
+     min-height: 0;
+   }
+   
+   .card__ide-output {
+     flex: 1 1 40%;
+     overflow: auto;
+     padding: 8px 10px;
+     font-family: var(--font-mono);
+     font-size: 11px;
+     line-height: 1.5;
+     color: #e5e7eb;
+     background: #21252b;
+     border-top: 1px solid #1e2127;
+     min-height: 0;
+   }
+   .card__ide-output--sql { flex: 1 1 100%; }
+   .card__ide-output-empty {
+     color: #6b7280;
+     text-align: center;
+     padding: 12px;
+   }
+   .card__ide-log { white-space: pre-wrap; word-break: break-word; }
+   .card__ide-log--error { color: #e06c75; }
+   .card__ide-log--warn  { color: #d19a66; }
+   .card__ide-log--ok    { color: #98c379; }
+   
+   .card__ide-sql-table {
+     width: 100%;
+     border-collapse: collapse;
+     margin-bottom: 12px;
+     font-size: 11px;
+     color: #e5e7eb;
+   }
+   .card__ide-sql-table th,
+   .card__ide-sql-table td {
+     border: 1px solid #3a3f4b;
+     padding: 4px 8px;
+     text-align: left;
+   }
+   .card__ide-sql-table th {
+     background: #2c313a;
+     font-weight: 500;
+     color: #9ba3af;
+     text-transform: uppercase;
+     font-size: 10px;
+     letter-spacing: 0.04em;
+   }
+   .card__ide-sql-caption {
+     font-family: var(--font-mono);
+     font-size: 10px;
+     color: #6b7280;
+     margin-bottom: 4px;
+   }
+   
+   .card__ide-loading {
+     padding: 24px;
+     text-align: center;
+     color: #6b7280;
+     font-family: var(--font-mono);
+     font-size: 11px;
+   }
+
+   .card__ide-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #21252b;
+    border-bottom: 1px solid #1e2127;
+    flex-shrink: 0;
+  }
+  
+  .card__ide-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid #1e2127;
+    background: #2c313a
+      url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3e%3cpath d='M1 1l4 4 4-4' stroke='%239ba3af' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e")
+      right 8px center / 10px 6px no-repeat;
+    color: #61afef;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 3px 22px 3px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background-color 120ms ease;
+    flex: 1;
+    max-width: 140px;
+  }
+  .card__ide-lang-select:hover  { border-color: #61afef; }
+  .card__ide-lang-select:focus  { outline: none; border-color: #61afef; }
+  .card__ide-lang-select option { background: #2c313a; color: #e5e7eb; }
+
+  /* ════════════════════════════════════════════════════════════════════
+   CONTEXT MENU — variante HORIZONTAL com submenus
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Reset do min-width vertical quando em modo horizontal */
+.context-menu.context-menu--horizontal {
+  min-width: 0;
+  padding: 4px;
+}
+
+.context-menu__row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.context-menu__cat {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+  transition: background 100ms ease, color 100ms ease;
+}
+.context-menu__cat:hover,
+.context-menu__cat.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.context-menu__cat:focus { outline: none; }
+
+.context-menu__cat-icon {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+}
+.context-menu__cat:hover .context-menu__cat-icon,
+.context-menu__cat.is-active .context-menu__cat-icon {
+  color: var(--accent);
+}
+
+.context-menu__cat-label { line-height: 1; }
+
+/* Submenu popover — absolute dentro do menu (que é fixed) */
+.context-menu__submenu {
+  position: absolute;
+  min-width: 200px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pop);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  z-index: 1;
+  animation: pop-in 100ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Item destrutivo (Limpar tudo) */
+.context-menu__item.is-danger {
+  color: oklch(0.55 0.20 25);
+}
+.context-menu__item.is-danger:hover {
+  background: oklch(0.55 0.20 25 / 0.10);
+}
+.context-menu__item.is-danger .context-menu__icon {
+  color: oklch(0.55 0.20 25);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FIX — Cards somem durante zoom rápido (v2)
+   ────────────────────────────────────────────────────────────────────
+   HISTÓRICO: a v1 usava
+     #world { transform-style: preserve-3d; backface-visibility: hidden; }
+     .card  { backface-visibility: hidden; contain: layout paint; }
+   Isso PIOROU o bug:
+     · preserve-3d + backface-visibility:hidden coloca tudo em contexto
+       3D. Durante um scale() rápido, imprecisão float faz a matriz ter
+       determinante levemente negativo em algum frame — o Chrome
+       interpreta como "verso da face" e ESCONDE os filhos.
+     · `contain: paint` isola o repaint. Quando a layer some por causa
+       do item acima, o card não é redesenhado até algo invalidar seu
+       layout — daí "só volta quando movimenta o zoom de novo".
+
+   Abordagem correta:
+     · Promover layer com will-change (sem contexto 3D).
+     · Usar contain: layout (só reflow), nunca `paint`.
+   ════════════════════════════════════════════════════════════════════ */
+
+   #world {
+    will-change: transform;
+  }
+
+  .card,
+  .freetext,
+  .sticker {
+    will-change: transform;
+    contain: layout;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+   Botão "soltar do frame" — aparece no handle de cards contidos
+   ════════════════════════════════════════════════════════════════════ */
+
+.card__detach-frame {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.card:hover .card__detach-frame,
+.card.is-selected .card__detach-frame {
+  opacity: 1;
+}
+.card__detach-frame:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   patches.css — Temas + estilos de apoio às novas funcionalidades
+   ────────────────────────────────────────────────────────────────────
+   Carregado DEPOIS de styles.css (ver index.html) para que os overrides
+   de tema tenham precedência sobre :root. Não substitui nada de
+   styles.css — só acrescenta.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────────────
+   Token adicional: cor padrão das conexões (setas). Definido aqui para
+   que cada tema possa adaptá-lo. connections.js usa var(--conn-color).
+──────────────────────────────────────────────────────────────────── */
+:root {
+  --conn-color: rgba(26, 26, 24, 0.5);
+  --conn-label-bg: var(--bg-elevated);
+  --border: rgba(26, 26, 24, 0.10);
+}
+
+/* ═══════════════════ TEMA: ESCURO ═══════════════════ */
+[data-theme="escuro"] {
+  --bg:          #1c1c20;
+  --bg-elevated: #26262c;
+  --ink:         #ecebe6;
+  --ink-soft:    #a0a09a;
+  --ink-faint:   #62625d;
+  --line:        #34343b;
+  --dot:         #33333a;
+  --accent:      oklch(0.68 0.15 295);
+  --accent-soft: oklch(0.68 0.15 295 / 0.16);
+  --conn-color:  rgba(236, 235, 230, 0.42);
+  --border:      rgba(255, 255, 255, 0.10);
+}
+
+/* ═══════════════════ TEMA: NEON (criativo) ═══════════════════ */
+[data-theme="neon"] {
+  --bg:          #16181d;
+  --bg-elevated: #1e2128;
+  --ink:         #eaf6ff;
+  --ink-soft:    #8fa3b8;
+  --ink-faint:   #55647a;
+  --line:        #2a2f3a;
+  --dot:         #262b36;
+  --accent:      oklch(0.78 0.19 195);   /* ciano elétrico */
+  --accent-soft: oklch(0.78 0.19 195 / 0.16);
+  --conn-color:  rgba(120, 200, 230, 0.55);
+  --border:      rgba(120, 200, 230, 0.16);
+}
+[data-theme="neon"] .card {
+  box-shadow: 0 0 0 1px rgba(120,200,230,0.10), 0 12px 30px rgba(0,0,0,0.5);
+}
+
+/* ═══════════════════ TEMA: SÉPIA (criativo) ═══════════════════ */
+[data-theme="sepia"] {
+  --bg:          #e9ddc4;
+  --bg-elevated: #f4ecd8;
+  --ink:         #43331c;
+  --ink-soft:    #7a6748;
+  --ink-faint:   #b3a184;
+  --line:        #d8c9a8;
+  --dot:         #d2c3a0;
+  --accent:      oklch(0.52 0.13 55);    /* terracota */
+  --accent-soft: oklch(0.52 0.13 55 / 0.12);
+  --conn-color:  rgba(67, 51, 28, 0.45);
+  --border:      rgba(67, 51, 28, 0.14);
+}
+
+/* ═══════════════════ TEMA: TERMINAL (criativo) ═══════════════════ */
+[data-theme="terminal"] {
+  --bg:          #0a0e0a;
+  --bg-elevated: #0f150f;
+  --ink:         #b8ffb8;
+  --ink-soft:    #5faf5f;
+  --ink-faint:   #2f5f2f;
+  --line:        #16221a;
+  --dot:         #14201a;
+  --accent:      oklch(0.82 0.22 145);   /* verde-fósforo */
+  --accent-soft: oklch(0.82 0.22 145 / 0.15);
+  --conn-color:  rgba(120, 255, 120, 0.42);
+  --border:      rgba(120, 255, 120, 0.16);
+  --font-sans:   var(--font-mono);
+}
+[data-theme="terminal"] .card { border-radius: 4px; }
+
+/* Transição suave ao trocar de tema. */
+html, body, .card, .hud, .context-menu, .projects-panel, .minimap {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CONEXÕES — alças de reancoragem (arrastar as pontas da seta)
+──────────────────────────────────────────────────────────────────── */
+.conn-endpoint {
+  fill: var(--bg-elevated, #fff);
+  stroke: var(--accent, #7c3aed);
+  stroke-width: 2;
+  cursor: grab;
+  pointer-events: all;
+}
+.conn-endpoint:hover { fill: var(--accent, #7c3aed); }
+body.is-endpoint-dragging { cursor: grabbing !important; }
+body.is-endpoint-dragging * { cursor: grabbing !important; }
+
+/* ────────────────────────────────────────────────────────────────────
+   FLUXOGRAMA — seletor de cor no card selecionado
+──────────────────────────────────────────────────────────────────── */
+.shape-color-bar {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 5px;
+  padding: 5px 7px;
+  background: var(--bg-elevated, #fdfcf9);
+  border: 1px solid var(--border, rgba(26,26,24,0.1));
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop, 0 8px 24px rgba(0,0,0,0.14));
+  z-index: 30;
+  white-space: nowrap;
+}
+.shape-color-bar__sw {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform .1s;
+}
+.shape-color-bar__sw:hover { transform: scale(1.15); }
+.shape-color-bar__sw.is-active { border-color: var(--ink, #1a1a18); }
+.card--shape.is-selected > .shape-color-bar { display: flex; }
+
+/* Cor aplicada à forma. As formas usam .card__shape-fill como superfície. */
+.card__shape-fill[data-fill] { background: var(--shape-fill, var(--bg-elevated)); }
+
+/* ────────────────────────────────────────────────────────────────────
+   FRAME — botão de desvincular (↗). Garante visibilidade/discoverabilidade.
+   (Reforça o que já existe em styles.css; !important só onde necessário.)
+──────────────────────────────────────────────────────────────────── */
+.card__frame-contents .card:hover .card__detach-frame,
+.card__frame-contents .card.is-selected .card__detach-frame {
+  opacity: 1;
+  pointer-events: auto;
+}
+.card__detach-frame {
+  cursor: pointer;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   PROJETOS — botão "apagar todos"
+──────────────────────────────────────────────────────────────────── */
+.projects-panel__danger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 8px;
+  font-family: var(--font-sans, sans-serif);
+  font-size: 11.5px;
+  color: oklch(0.55 0.20 25);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.projects-panel__danger:hover {
+  background: oklch(0.55 0.20 25 / 0.08);
+  border-color: oklch(0.55 0.20 25 / 0.3);
+}

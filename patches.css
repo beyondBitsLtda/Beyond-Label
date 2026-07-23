@@ -1,0 +1,222 @@
+/* ════════════════════════════════════════════════════════════════════
+   patches.css — Temas + estilos de apoio às novas funcionalidades
+   ────────────────────────────────────────────────────────────────────
+   Carregado DEPOIS de styles.css (ver index.html) para que os overrides
+   de tema tenham precedência sobre :root. Não substitui nada de
+   styles.css — só acrescenta.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────────────
+   Token adicional: cor padrão das conexões (setas). Definido aqui para
+   que cada tema possa adaptá-lo. connections.js usa var(--conn-color).
+──────────────────────────────────────────────────────────────────── */
+:root {
+  --conn-color: rgba(26, 26, 24, 0.5);
+  --conn-label-bg: var(--bg-elevated);
+  --border: rgba(26, 26, 24, 0.10);
+}
+
+/* ═══════════════════ TEMA: ESCURO ═══════════════════ */
+[data-theme="escuro"] {
+  --bg:          #1c1c20;
+  --bg-elevated: #26262c;
+  --ink:         #ecebe6;
+  --ink-soft:    #a0a09a;
+  --ink-faint:   #62625d;
+  --line:        #34343b;
+  --dot:         #33333a;
+  --accent:      oklch(0.68 0.15 295);
+  --accent-soft: oklch(0.68 0.15 295 / 0.16);
+  --conn-color:  rgba(236, 235, 230, 0.42);
+  --border:      rgba(255, 255, 255, 0.10);
+}
+
+/* ═══════════════════ TEMA: NEON (criativo) ═══════════════════ */
+[data-theme="neon"] {
+  --bg:          #16181d;
+  --bg-elevated: #1e2128;
+  --ink:         #eaf6ff;
+  --ink-soft:    #8fa3b8;
+  --ink-faint:   #55647a;
+  --line:        #2a2f3a;
+  --dot:         #262b36;
+  --accent:      oklch(0.78 0.19 195);   /* ciano elétrico */
+  --accent-soft: oklch(0.78 0.19 195 / 0.16);
+  --conn-color:  rgba(120, 200, 230, 0.55);
+  --border:      rgba(120, 200, 230, 0.16);
+}
+[data-theme="neon"] .card {
+  box-shadow: 0 0 0 1px rgba(120,200,230,0.10), 0 12px 30px rgba(0,0,0,0.5);
+}
+
+/* ═══════════════════ TEMA: SÉPIA (criativo) ═══════════════════ */
+[data-theme="sepia"] {
+  --bg:          #e9ddc4;
+  --bg-elevated: #f4ecd8;
+  --ink:         #43331c;
+  --ink-soft:    #7a6748;
+  --ink-faint:   #b3a184;
+  --line:        #d8c9a8;
+  --dot:         #d2c3a0;
+  --accent:      oklch(0.52 0.13 55);    /* terracota */
+  --accent-soft: oklch(0.52 0.13 55 / 0.12);
+  --conn-color:  rgba(67, 51, 28, 0.45);
+  --border:      rgba(67, 51, 28, 0.14);
+}
+
+/* ═══════════════════ TEMA: TERMINAL (criativo) ═══════════════════ */
+[data-theme="terminal"] {
+  --bg:          #0a0e0a;
+  --bg-elevated: #0f150f;
+  --ink:         #b8ffb8;
+  --ink-soft:    #5faf5f;
+  --ink-faint:   #2f5f2f;
+  --line:        #16221a;
+  --dot:         #14201a;
+  --accent:      oklch(0.82 0.22 145);   /* verde-fósforo */
+  --accent-soft: oklch(0.82 0.22 145 / 0.15);
+  --conn-color:  rgba(120, 255, 120, 0.42);
+  --border:      rgba(120, 255, 120, 0.16);
+  --font-sans:   var(--font-mono);
+}
+[data-theme="terminal"] .card { border-radius: 4px; }
+
+/* Transição suave ao trocar de tema. */
+html, body, .card, .hud, .context-menu, .projects-panel, .minimap {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CONEXÕES — alças de reancoragem (arrastar as pontas da seta)
+──────────────────────────────────────────────────────────────────── */
+.conn-endpoint {
+  fill: var(--bg-elevated, #fff);
+  stroke: var(--accent, #7c3aed);
+  stroke-width: 2;
+  cursor: grab;
+  pointer-events: all;
+}
+.conn-endpoint:hover { fill: var(--accent, #7c3aed); }
+body.is-endpoint-dragging { cursor: grabbing !important; }
+body.is-endpoint-dragging * { cursor: grabbing !important; }
+
+/* ────────────────────────────────────────────────────────────────────
+   FLUXOGRAMA — seletor de cor no card selecionado
+──────────────────────────────────────────────────────────────────── */
+.shape-color-bar {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 5px;
+  padding: 5px 7px;
+  background: var(--bg-elevated, #fdfcf9);
+  border: 1px solid var(--border, rgba(26,26,24,0.1));
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop, 0 8px 24px rgba(0,0,0,0.14));
+  z-index: 30;
+  white-space: nowrap;
+}
+.shape-color-bar__sw {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform .1s;
+}
+.shape-color-bar__sw:hover { transform: scale(1.15); }
+.shape-color-bar__sw.is-active { border-color: var(--ink, #1a1a18); }
+.card--shape.is-selected > .shape-color-bar { display: flex; }
+
+/* Cor aplicada à forma. As formas usam .card__shape-fill como superfície. */
+.card__shape-fill[data-fill] { background: var(--shape-fill, var(--bg-elevated)); }
+
+/* ────────────────────────────────────────────────────────────────────
+   FRAME — botão de desvincular (↗). Garante visibilidade/discoverabilidade.
+   (Reforça o que já existe em styles.css; !important só onde necessário.)
+──────────────────────────────────────────────────────────────────── */
+.card__frame-contents .card:hover .card__detach-frame,
+.card__frame-contents .card.is-selected .card__detach-frame {
+  opacity: 1;
+  pointer-events: auto;
+}
+.card__detach-frame {
+  cursor: pointer;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   PROJETOS — botão "apagar todos"
+──────────────────────────────────────────────────────────────────── */
+.projects-panel__danger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 8px;
+  font-family: var(--font-sans, sans-serif);
+  font-size: 11.5px;
+  color: oklch(0.55 0.20 25);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.projects-panel__danger:hover {
+  background: oklch(0.55 0.20 25 / 0.08);
+  border-color: oklch(0.55 0.20 25 / 0.3);
+}
+
+/* ─── Cor e espessura no menu de conexão (Miro-like) ─── */
+.conn-menu__colors { gap: 4px !important; }
+.conn-menu__sw {
+  width: 18px; height: 18px; padding: 0; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; flex: 0 0 auto;
+  transition: transform .1s, border-color .1s;
+}
+.conn-menu__sw:hover { transform: scale(1.15); }
+.conn-menu__sw.is-active { border-color: var(--ink, #1a1a18); }
+.conn-menu__sw--default {
+  background:
+    linear-gradient(135deg, transparent 45%, #e5484d 45%, #e5484d 55%, transparent 55%),
+    var(--conn-color, #888);
+  background-blend-mode: normal;
+}
+.conn-menu__widths { gap: 2px !important; }
+.conn-menu__w {
+  min-width: 26px; font-size: 13px; line-height: 1; color: var(--ink-soft, #6b6a64);
+}
+.conn-menu__w.is-active { color: var(--accent, #7c3aed); background: var(--accent-soft, rgba(124,58,237,.12)); }
+
+/* ─── Alça de curvatura da conexão ─── */
+.conn-bend {
+  fill: var(--bg-elevated, #fff);
+  stroke: var(--accent, #7c3aed);
+  stroke-width: 2;
+  cursor: grab;
+  transition: r .1s;
+}
+.conn-bend:hover { stroke-width: 2.6; }
+body.is-endpoint-dragging .conn-bend { cursor: grabbing; }
+
+/* ─── Texto livre (freetext): garante escrita HORIZONTAL ─── */
+.freetext {
+  writing-mode: horizontal-tb !important;  /* nunca vertical */
+  white-space: nowrap !important;           /* flui horizontal; só quebra no Enter */
+  width: auto !important;                    /* cresce com o texto, sem largura fixa */
+  min-width: 30px;
+  max-width: none !important;                /* nada de limite que force quebra */
+  height: auto !important;
+  overflow: visible;
+  text-orientation: mixed;
+}
+
+/* ─── Reposiciona o selo de colaboração ACIMA da barra de lápis ─── */
+.collab-badge {
+  bottom: 72px !important;
+  left: 16px !important;
+}
