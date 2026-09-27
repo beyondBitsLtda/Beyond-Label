@@ -1,0 +1,35 @@
+{
+  "id": "BEYOND-0001",
+  "titulo": "O beyond label quebrou o deploy",
+  "descricao": "Depois que migramos da vercel para o github pages o host simplismente não funciona.  Os estilos da página quebrarm por completo, suspeito que tenha haver com as chaves do trello ou algo que estvaa nas config da vercel. \nA lisa disse que pode ser algum problema de rota no build também. Vale conferir o base patch.\n\nNOTA: Odeio VERCEL.",
+  "tipo": "bug",
+  "prioridade": "alta",
+  "status": "concluida",
+  "responsavel": "Brayan Rodrigues",
+  "prazo": "2026-09-29",
+  "versaoAlvo": "0.1.0",
+  "criadaEm": "2026-09-27T05:22:45.877Z",
+  "criadaPor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+  "atualizadaEm": "2026-09-27T05:23:33.790Z",
+  "comentarios": [
+    {
+      "quando": "2026-09-27T05:23:25.839Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "texto": "Abri a Issue no repositório errado.",
+      "evidencias": []
+    }
+  ],
+  "evidencias": [],
+  "historico": [
+    {
+      "quando": "2026-09-27T05:22:45.877Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "mudanca": "issue criada"
+    },
+    {
+      "quando": "2026-09-27T05:23:33.790Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "mudanca": "situação: aberta → concluida"
+    }
+  ]
+}

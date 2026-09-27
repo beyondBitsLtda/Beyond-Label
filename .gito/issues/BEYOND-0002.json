@@ -1,0 +1,23 @@
+{
+  "id": "BEYOND-0002",
+  "titulo": "Construir test run automática e manual.",
+  "descricao": "Hoje a aplicação ta meio abandonada, eu preciso entender em que pé de qualiade ela se encontra. Por isso acho importante rodar a seção de testese criar as issues necessárias.",
+  "tipo": "melhoria",
+  "prioridade": "baixa",
+  "status": "aberta",
+  "responsavel": "Brayan Rodrigues",
+  "prazo": "2026-10-10",
+  "versaoAlvo": "0.1.0",
+  "criadaEm": "2026-09-27T05:41:01.424Z",
+  "criadaPor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+  "atualizadaEm": "2026-09-27T05:41:01.424Z",
+  "comentarios": [],
+  "evidencias": [],
+  "historico": [
+    {
+      "quando": "2026-09-27T05:41:01.424Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "mudanca": "issue criada"
+    }
+  ]
+}
