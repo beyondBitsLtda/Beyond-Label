@@ -1,0 +1,170 @@
+{
+  "$gito": 1,
+  "aplicacao": {
+    "nome": "Beyond-Label",
+    "codigo": "BEYOND",
+    "descricao": "Quadro branco infinito no navegador (\"Whiteboard Criativo Infinito\") para quem precisa organizar ideias, fluxogramas, storyboards, modelos de banco, UML e trechos de código num só lugar, com colaboração em tempo real.",
+    "tipo": "Aplicação web",
+    "situacao": "em produção",
+    "responsavel": "",
+    "equipe": ""
+  },
+  "versao": "0.1.0",
+  "atualizadoEm": "2026-09-27",
+  "compilacao": {
+    "numero": 1,
+    "data": "2026-09-26",
+    "artefato": ""
+  },
+  "historico": [
+    {
+      "versao": "0.1.0",
+      "data": "2026-09-26",
+      "branch": "main",
+      "tipo": "funcionalidade",
+      "resumo": "Ficha criada no Gito.",
+      "itens": [
+        "Primeiro registro de versão e ficha técnica da aplicação."
+      ],
+      "issues": []
+    }
+  ],
+  "ficha": {
+    "escopo": {
+      "objetivo": "Oferecer um canvas infinito (pan e zoom) onde a pessoa monta visualmente ideias e projetos com cards de vários tipos, desenha à mão livre, liga elementos com setas e, se quiser, salva na nuvem e edita junto com colegas em tempo real.",
+      "inclui": [
+        "Canvas infinito com pan (arrastar/scroll), zoom ancorado no cursor (Ctrl+scroll ou pinça) e mini-mapa navegável.",
+        "Cards de nota, código e texto solto com barra de formatação; mover, redimensionar (8 direções), copiar/colar e apagar.",
+        "Fluxograma: formas Início/Fim, Processo, Decisão e Dados, com conexões por âncoras (reta, curva ou dupla) e rótulo nas setas.",
+        "Mídia: imagem (colar, arrastar ou escolher arquivo), YouTube, áudio e vídeo.",
+        "Storyboard: frames 9:16, 16:9 e 1:1 que prendem os cards dentro, numeração e modo \"Lente do Diretor\" com fly-through.",
+        "Modelagem de banco de dados: card de tabela com colunas e marcações PK, FK e NOT NULL.",
+        "UML: classe, ator, caso de uso e nota, com estilos de relacionamento nas conexões.",
+        "Card IDE com CodeMirror para HTML, CSS, JavaScript e SQL, com pré-visualização em iframe isolado (sandbox) e execução de SQL em SQLite no próprio navegador (sql.js).",
+        "Caneta livre e borracha em camada SVG, com paleta de cores.",
+        "Adesivos (stickers) e templates de canvas, incluindo o de boas-vindas.",
+        "Vários projetos (canvases independentes) com prévia, renomear, apagar, exportar e importar backup em arquivo JSON.",
+        "Paleta de comando (Ctrl+K) para buscar ações, cards e projetos.",
+        "Cinco temas visuais: claro, escuro, neon, sépia e terminal.",
+        "Salvamento automático no navegador (localStorage), funcionando sem internet para o básico.",
+        "Login por e-mail e senha (Supabase Auth) para salvar e abrir canvases na nuvem; as imagens sobem para o Supabase Storage.",
+        "Colaboração em tempo real por link com #room=<id>: cards, desenhos, conexões e cursores com nome dos participantes.",
+        "Chat de texto da sessão de colaboração."
+      ],
+      "naoInclui": [
+        "Não tem servidor nem API próprios: é um site estático; o back-end é o Supabase (serviço gerenciado).",
+        "Não sincroniza na colaboração os frames de storyboard, os adesivos nem o texto solto (só cards, desenhos, conexões e cursores).",
+        "Não guarda a sessão de colaboração nem o chat: o chat é efêmero e o quadro colaborativo só fica salvo se alguém salvar localmente ou na nuvem.",
+        "Não compartilha canvases salvos na nuvem entre contas: cada usuário só lê e grava os próprios quadros (RLS por dono).",
+        "Não tem controle de acesso à sala de colaboração: quem tiver o link da sala entra e edita.",
+        "Não tem histórico de versões nem desfazer entre sessões.",
+        "Não é integrado a Fluig, TOTVS RM ou a outros sistemas corporativos."
+      ]
+    },
+    "stack": [
+      "HTML5 + CSS3 (styles.css e patches.css com os temas via data-theme)",
+      "JavaScript ES Modules puro, sem framework e sem etapa de build",
+      "Import map com dependências carregadas do CDN esm.sh",
+      "CodeMirror 6 (@codemirror/state 6.4.1, @codemirror/view 6.26.3, linguagens JavaScript, HTML, CSS e SQL, tema One Dark)",
+      "sql.js 1.10.3 (SQLite em WebAssembly, para o preview SQL do card IDE)",
+      "Yjs 13.6.18 + y-protocols 1.0.6 (CRDT e awareness para a colaboração)",
+      "@supabase/supabase-js v2 (Auth, Postgres, Storage e Realtime)",
+      "Supabase: PostgreSQL com Row Level Security, Storage e Realtime (broadcast)",
+      "Google Fonts: Geist, Geist Mono, Homemade Apple, Caveat e Kalam",
+      "localStorage do navegador para autosave, projetos e preferências"
+    ],
+    "arquitetura": {
+      "resumo": "SPA estática (index.html + módulos em js/) que roda inteira no navegador. O DOM é a fonte do estado: #viewport captura pan/zoom e #world é o plano infinito transformado por translate/scale, onde vivem os cards, uma camada SVG de desenho e uma camada SVG de conexões. O persistence.js serializa o canvas em JSON e grava no localStorage com debounce de 600 ms (chaves whiteboard:projects, whiteboard:active e whiteboard:v1:<id> por projeto); projects.js gerencia os canvases e o export/import em arquivo JSON versionado (format \"whiteboard-export\"). Nuvem opcional (supabase.js): login por e-mail e senha no Supabase Auth; ao salvar, as imagens base64 sobem para o bucket público \"board-media\" (nome = hash SHA-256, sem duplicar) e o JSON enxuto é gravado com upsert na tabela public.boards (user_id + project_id únicos, RLS: cada usuário vê só o que é seu). Colaboração (collab.js + collab-supabase.js): só liga com #room=<id> na URL; um Y.Doc (Yjs) espelha cards, strokes e conexões, e os updates binários viajam em base64 por broadcast no canal Supabase Realtime \"collab:whiteboard-<sala>\" — quem entra pede o estado completo (sync-request) e o anfitrião responde. O chat usa o canal próprio \"chat:<sala>\", sem gravar mensagens. As dependências vêm de CDN (esm.sh e Google Fonts), então o primeiro carregamento precisa de internet.",
+      "diagramas": [
+        {
+          "titulo": "Visão geral da arquitetura",
+          "mermaid": "flowchart LR\n  subgraph Navegador[\"Navegador (SPA estática, ES Modules)\"]\n    UI[\"index.html + js/*\\ncanvas, cards, mídia, storyboard,\\nDB, UML, IDE, desenho, conexões\"]\n    PERS[\"persistence.js / projects.js\\nautosave + export/import JSON\"]\n    LS[(\"localStorage\\nwhiteboard:*\")]\n    COLLAB[\"collab.js\\nY.Doc (Yjs)\"]\n    PROV[\"collab-supabase.js\\nprovider Realtime\"]\n    CHAT[\"chat.js\"]\n    SBJS[\"supabase.js\\nlogin + nuvem\"]\n    UI --> PERS --> LS\n    UI <--> COLLAB <--> PROV\n  end\n  subgraph Supabase[\"Supabase (gerenciado)\"]\n    AUTH[\"Auth\\ne-mail + senha\"]\n    DB[(\"Postgres\\npublic.boards (RLS)\")]\n    ST[(\"Storage\\nbucket board-media\")]\n    RT[\"Realtime\\ncanais collab:* e chat:*\"]\n  end\n  CDN[\"CDN esm.sh\\nCodeMirror, sql.js, Yjs, supabase-js\"]\n  SBJS --> AUTH\n  SBJS -->|salvar / abrir| DB\n  SBJS -->|imagens| ST\n  PROV <-->|broadcast| RT\n  CHAT <-->|broadcast| RT\n  CDN -.-> Navegador"
+        },
+        {
+          "titulo": "Fluxo de colaboração em tempo real",
+          "mermaid": "sequenceDiagram\n  participant A as Anfitrião\n  participant R as Supabase Realtime\n  participant B as Convidado\n  A->>A: colaborar gera #room=id\n  A->>R: assina collab:whiteboard-id\n  B->>B: abre o link e limpa o canvas local\n  B->>R: assina o canal e envia sync-request\n  R->>A: sync-request\n  A->>R: estado completo do Y.Doc + awareness\n  R->>B: aplica o estado\n  loop edição\n    A->>R: update Yjs (base64)\n    R->>B: update\n    B->>R: update Yjs (base64)\n    R->>A: update\n  end"
+        }
+      ]
+    },
+    "hospedagem": [
+      {
+        "ambiente": "Produção",
+        "onde": "A definir. Por ser um site estático sem build, basta publicar index.html, styles.css, patches.css e a pasta js/ em qualquer servidor HTTP(S) (ex.: GitHub Pages). Precisa ser servido por HTTP, não por file://, por causa dos ES Modules.",
+        "url": "",
+        "verificar": false
+      }
+    ],
+    "bancoDeDados": [
+      {
+        "nome": "Supabase — Postgres (canvases salvos na nuvem)",
+        "tipo": "PostgreSQL (Supabase)",
+        "servidor": "wilxxkkqgoigmrdgufej.supabase.co",
+        "porta": 443,
+        "base": "public.boards",
+        "acesso": "https://supabase.com/dashboard/project/wilxxkkqgoigmrdgufej — solicitar acesso via chamado no GLPI",
+        "observacao": "Tabela boards (id, user_id, project_id, name, data jsonb, updated_at), única por user_id + project_id, com RLS: cada usuário só lê e grava os próprios quadros. O SQL de criação está no fim de js/supabase.js. O app acessa pela API HTTPS com a chave pública (publishable), protegida pelo RLS."
+      },
+      {
+        "nome": "Supabase — Storage (imagens dos canvases)",
+        "tipo": "Supabase Storage",
+        "servidor": "wilxxkkqgoigmrdgufej.supabase.co",
+        "porta": 443,
+        "base": "bucket board-media",
+        "acesso": "https://supabase.com/dashboard/project/wilxxkkqgoigmrdgufej/storage/buckets — solicitar acesso via chamado no GLPI",
+        "observacao": "Bucket PÚBLICO: qualquer pessoa com o link da imagem consegue abri-la. Arquivos em <user_id>/<hash>.<ext>. Leitura pública; envio e alteração só para usuários logados."
+      },
+      {
+        "nome": "localStorage do navegador",
+        "tipo": "Web Storage (localStorage)",
+        "servidor": "",
+        "porta": 0,
+        "base": "chaves whiteboard:*",
+        "acesso": "",
+        "observacao": "Armazenamento principal e offline: whiteboard:projects (índice), whiteboard:active (projeto aberto), whiteboard:v1:<id> (estado de cada canvas), whiteboard:seed:<id>, whiteboard:theme e collab:name. Fica só naquele navegador e tem limite de alguns MB (imagens embutidas estouram rápido)."
+      }
+    ],
+    "integracoes": [
+      {
+        "nome": "Supabase Auth",
+        "descricao": "Login e criação de conta por e-mail e senha; o prefixo do e-mail vira o nome no cursor e no chat.",
+        "url": "https://wilxxkkqgoigmrdgufej.supabase.co"
+      },
+      {
+        "nome": "Supabase Realtime",
+        "descricao": "WebSocket gerenciado em modo broadcast: canal collab:whiteboard-<sala> para os updates do Yjs e cursores, e canal chat:<sala> para o chat da sessão.",
+        "url": "https://wilxxkkqgoigmrdgufej.supabase.co"
+      },
+      {
+        "nome": "CDN esm.sh",
+        "descricao": "Entrega em tempo de execução CodeMirror, sql.js (e o .wasm), Yjs, y-protocols e supabase-js. Sem ele o card IDE, a nuvem e a colaboração não carregam.",
+        "url": "https://esm.sh"
+      },
+      {
+        "nome": "Google Fonts",
+        "descricao": "Fontes Geist, Geist Mono, Homemade Apple, Caveat e Kalam.",
+        "url": "https://fonts.google.com"
+      },
+      {
+        "nome": "YouTube (embed)",
+        "descricao": "Cards de YouTube incorporam o vídeo via youtube.com/embed.",
+        "url": "https://www.youtube.com"
+      }
+    ],
+    "links": [
+      {
+        "titulo": "Repositório",
+        "url": "https://github.com/beyondBitsLtda/Beyond-Label"
+      },
+      {
+        "titulo": "Painel do projeto Supabase",
+        "url": "https://supabase.com/dashboard/project/wilxxkkqgoigmrdgufej"
+      }
+    ],
+    "contatos": [
+      {
+        "papel": "Responsável técnico",
+        "nome": ""
+      }
+    ]
+  }
+}
