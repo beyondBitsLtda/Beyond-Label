@@ -4,20 +4,32 @@
   "descricao": "Hoje a aplicação ta meio abandonada, eu preciso entender em que pé de qualiade ela se encontra. Por isso acho importante rodar a seção de testese criar as issues necessárias.",
   "tipo": "melhoria",
   "prioridade": "baixa",
-  "status": "aberta",
+  "status": "cancelada",
   "responsavel": "Brayan Rodrigues",
   "prazo": "2026-10-10",
   "versaoAlvo": "0.1.0",
   "criadaEm": "2026-09-27T05:41:01.424Z",
   "criadaPor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
-  "atualizadaEm": "2026-09-27T05:41:01.424Z",
-  "comentarios": [],
+  "atualizadaEm": "2026-10-15T00:12:24.209Z",
+  "comentarios": [
+    {
+      "quando": "2026-10-15T00:09:13.597Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "texto": "Vou cancelar , vou subistituir por outro software",
+      "evidencias": []
+    }
+  ],
   "evidencias": [],
   "historico": [
     {
       "quando": "2026-09-27T05:41:01.424Z",
       "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
       "mudanca": "issue criada"
+    },
+    {
+      "quando": "2026-10-15T00:12:24.209Z",
+      "autor": "Brayan Rodrigues <brayan.rodrigues@delp.com.br>",
+      "mudanca": "situação: aberta → cancelada"
     }
   ]
 }
